@@ -42,7 +42,7 @@ def create_style_transfer_frame():
     # 左侧：源图像选择
     left_panel = tk.Frame(middle_frame)
     tk.Label(left_panel, text="选择源图像", font=("Arial", 14)).pack(pady=5)
-    tk.OptionMenu(left_panel, source_label_var, *label_options).pack(pady=5)
+    tk.OptionMenu(left_panel, transfer_source_label_var, *label_options).pack(pady=5)
     tk.Entry(left_panel, textvariable=transfer_source_image_path, width=40).pack(pady=5)
 
     # 新建并挂载预览框
@@ -55,7 +55,7 @@ def create_style_transfer_frame():
     # 右侧：参考图像选择
     right_panel = tk.Frame(middle_frame)
     tk.Label(right_panel, text="选择参考图像", font=("Arial", 14)).pack(pady=5)
-    tk.OptionMenu(right_panel, reference_label_var, *label_options).pack(pady=5)
+    tk.OptionMenu(right_panel, transfer_reference_label_var, *label_options).pack(pady=5)
     tk.Entry(right_panel, textvariable=transfer_reference_image_path, width=40).pack(pady=5)
 
     reference_preview_label = tk.Label(right_panel)
@@ -116,8 +116,8 @@ def upload_images():
             "reference": open(transfer_reference_image_path.get(), "rb")
         }
         data = {
-            "source_label": source_label_var.get(),
-            "reference_label": reference_label_var.get()
+            "source_label": transfer_source_label_var.get(),
+            "reference_label": transfer_reference_label_var.get()
         }
         response = requests.post(url, files=files, data=data)
         if response.status_code == 200:
@@ -147,8 +147,8 @@ transfer_reference_preview = tk.Label()
 label_options = ["dress", "pant", "short"]
 
 # 存储标签选择
-source_label_var = tk.StringVar(value=label_options[0])
-reference_label_var = tk.StringVar(value=label_options[0])
+transfer_source_label_var = tk.StringVar(value=label_options[0])
+transfer_reference_label_var = tk.StringVar(value=label_options[0])
 
 # 初始化功能界面
 menu_frame = create_menu_frame()
