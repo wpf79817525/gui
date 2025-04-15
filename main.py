@@ -40,11 +40,28 @@ def create_style_transfer_frame():
     middle_frame.pack(pady=10)
 
     # 左侧：源图像选择
-    left_panel = create_image_selection_panel(middle_frame, "选择源图像", transfer_source_image_path, transfer_source_preview)
+    left_panel = tk.Frame(middle_frame)
+    tk.Label(left_panel, text="选择源图像", font=("Arial", 14)).pack(pady=5)
+    tk.OptionMenu(left_panel, source_label_var, *label_options).pack(pady=5)
+    tk.Entry(left_panel, textvariable=transfer_source_image_path, width=40).pack(pady=5)
+
+    # 新建并挂载预览框
+    source_preview_label = tk.Label(left_panel)
+    source_preview_label.pack(pady=5)
+    tk.Button(left_panel, text="浏览",
+              command=lambda: browse_image(transfer_source_image_path, source_preview_label)).pack(pady=5)
     left_panel.pack(side="left", padx=20)
 
     # 右侧：参考图像选择
-    right_panel = create_image_selection_panel(middle_frame, "选择参考图像", transfer_reference_image_path, transfer_reference_preview)
+    right_panel = tk.Frame(middle_frame)
+    tk.Label(right_panel, text="选择参考图像", font=("Arial", 14)).pack(pady=5)
+    tk.OptionMenu(right_panel, reference_label_var, *label_options).pack(pady=5)
+    tk.Entry(right_panel, textvariable=transfer_reference_image_path, width=40).pack(pady=5)
+
+    reference_preview_label = tk.Label(right_panel)
+    reference_preview_label.pack(pady=5)
+    tk.Button(right_panel, text="浏览",
+              command=lambda: browse_image(transfer_reference_image_path, reference_preview_label)).pack(pady=5)
     right_panel.pack(side="left", padx=20)
 
     # 上传按钮
@@ -92,13 +109,17 @@ def upload_images():
     root.update_idletasks()
 
     try:
-        # TODO
-        url = "http://localhost:8000/style-transfer"  # 修改为你的实际 API 地址
+        # TODO 实验室局域网
+        url = "http://192.168.1.117:8000/style-transfer"  # 修改为你的实际 API 地址
         files = {
             "source": open(transfer_source_image_path.get(), "rb"),
             "reference": open(transfer_reference_image_path.get(), "rb")
         }
-        response = requests.post(url, files=files)
+        data = {
+            "source_label": source_label_var.get(),
+            "reference_label": reference_label_var.get()
+        }
+        response = requests.post(url, files=files, data=data)
         if response.status_code == 200:
             transfer_status_label.config(text="转换完成 ✔", fg="green")
             img_data = response.content
@@ -121,6 +142,13 @@ transfer_reference_image_path = tk.StringVar()
 # 定义预览标签
 transfer_source_preview = tk.Label()
 transfer_reference_preview = tk.Label()
+
+# 标签选项
+label_options = ["dress", "pant", "short"]
+
+# 存储标签选择
+source_label_var = tk.StringVar(value=label_options[0])
+reference_label_var = tk.StringVar(value=label_options[0])
 
 # 初始化功能界面
 menu_frame = create_menu_frame()
