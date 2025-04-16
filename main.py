@@ -3,17 +3,18 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import requests
 from io import BytesIO
+import base64
 
 # 初始化窗口
 root = tk.Tk()
 root.title("功能选择界面")
-root.geometry("800x600")
+root.geometry("1500x850")
 
 # ----------- 工具函数 -----------
 
 def switch_frame(to_show):
     """切换显示的界面"""
-    for frame in [menu_frame, style_transfer_frame]:
+    for frame in [menu_frame, style_transfer_frame, cloth_changing_reid_frame]:
         frame.pack_forget()
     to_show.pack(fill="both", expand=True)
 
@@ -23,7 +24,8 @@ def create_menu_frame():
     """创建主菜单界面"""
     menu_frame = tk.Frame(root)
     tk.Label(menu_frame, text="请选择功能", font=("Arial", 24)).pack(pady=50)
-    tk.Button(menu_frame, text="风格转换功能", font=("Arial", 16), command=lambda: switch_frame(style_transfer_frame)).pack()
+    tk.Button(menu_frame, text="风格转换功能", font=("Arial", 16), command=lambda: switch_frame(style_transfer_frame)).pack(pady=15)
+    tk.Button(menu_frame, text="换装行人重识别图像检索", font=("Arial", 16), command=lambda: switch_frame(cloth_changing_reid_frame)).pack(pady=15)
     return menu_frame
 
 # ----------- 风格转换 Frame -----------
@@ -83,6 +85,38 @@ def create_image_selection_panel(parent, label_text, path_var, preview_label):
     preview_label.pack(pady=5)
     return panel
 
+# ----------- 换装行人重识别检索 Frame -----------
+def create_cloth_changing_reid_frame():
+
+    cloth_changing_reid_frame = tk.Frame(root)
+
+    # 返回按钮
+    tk.Button(cloth_changing_reid_frame, text="← 返回主菜单", font=("Arial", 12), command=lambda: switch_frame(menu_frame)).pack(anchor="nw", padx=10, pady=10)
+
+
+    # 查询图像选择
+    tk.Label(cloth_changing_reid_frame, text="选择查询图像", font=("Arial, 14")).pack(pady=5)
+    top_bar = tk.Frame(cloth_changing_reid_frame)
+    top_bar.pack(pady=5)
+
+
+    tk.Entry(top_bar, textvariable=cloth_changing_reid_query_image_path, width=50).pack(side="left")
+    tk.Button(top_bar, text="浏览", command=lambda: browse_image(cloth_changing_reid_query_image_path, preview_label)).pack(side="left",padx=10)
+    tk.Button(top_bar, text="开始检索", command=lambda :perform_cloth_changing_reid_search(preview_label, result_frame, reid_status_label)).pack(side="left", padx=10)
+
+    global preview_label, result_frame, reid_status_label
+    preview_label = tk.Label(cloth_changing_reid_frame)
+    preview_label.pack(pady=10)
+
+    reid_status_label = tk.Label(cloth_changing_reid_frame, text="", font=("Arial", 12))
+    reid_status_label.pack(pady=5)
+
+    result_frame = tk.Frame(cloth_changing_reid_frame)
+    result_frame.pack(pady=20)
+
+    return cloth_changing_reid_frame, preview_label, result_frame, reid_status_label
+
+
 # ----------- 功能函数 -----------
 
 def browse_image(path_var, preview_label):
@@ -96,7 +130,7 @@ def show_image_preview(file_path, label):
     """显示图像预览"""
     try:
         img = Image.open(file_path)
-        img = img.resize((200, 200))
+        img = img.resize((150, 300))
         img_tk = ImageTk.PhotoImage(img)
         label.configure(image=img_tk)
         label.image = img_tk
@@ -133,11 +167,55 @@ def upload_images():
     except Exception as e:
         transfer_status_label.config(text=f"请求失败：{e}", fg="red")
 
+def perform_cloth_changing_reid_search(preview_label, result_frame, reid_status_label):
+    """换装行人重识别图像检索"""
+    if not cloth_changing_reid_query_image_path.get():
+        messagebox.showwarning("提示","请先选择图像")
+        return
+    reid_status_label.config(text="检索中...", fg="blue")
+    root.update_idletasks()
+    try:
+        url = "http://192.168.1.117:8000/cloth-changing-reid"  # 换成你实际部署的地址
+        with open(cloth_changing_reid_query_image_path.get(), "rb") as f:
+            response = requests.post(url, files={'image': f})
+        if response.status_code == 200:
+            results = response.json()['results']
+            show_reid_results(results, result_frame)
+            reid_status_label.config(text="检索完成 ✔", fg="green")
+        else:
+            reid_status_label.config(text="检索失败 ❌", fg="red")
+    except Exception as e:
+        reid_status_label.config(text=f"请求失败：{e}", fg="red")
+
+def show_reid_results(results, result_frame):
+    """行人重识别图像检索结果展示(使用 base64 图像)"""
+    for widget in result_frame.winfo_children():
+        widget.destroy()
+    for i, item in enumerate(results):
+        try:
+            img_base64 = item['img_base64']
+            score = item['score']
+
+            img_data = base64.b64decode(img_base64)
+            img = Image.open(BytesIO(img_data)).resize((128, 256))
+            img_tk = ImageTk.PhotoImage(img)
+
+            label = tk.Label(result_frame, image=img_tk)
+            label.image = img_tk
+            label.grid(row=0, column=i, padx=5)
+
+            score_label = tk.Label(result_frame, text=f"{score:.4f}")
+            score_label.grid(row=1, column=i)
+        except Exception as e:
+            print(f"显示图像失败，错误：{e}")
+
+
 # ----------- 初始化界面 -----------
 
 # 在这里定义保存图像路径的 StringVar
 transfer_source_image_path = tk.StringVar()
 transfer_reference_image_path = tk.StringVar()
+cloth_changing_reid_query_image_path = tk.StringVar()
 
 # 定义预览标签
 transfer_source_preview = tk.Label()
@@ -153,6 +231,7 @@ transfer_reference_label_var = tk.StringVar(value=label_options[0])
 # 初始化功能界面
 menu_frame = create_menu_frame()
 style_transfer_frame, transfer_status_label = create_style_transfer_frame()
+cloth_changing_reid_frame, preview_label, result_frame,reid_status_label = create_cloth_changing_reid_frame()
 
 # 启动主循环
 switch_frame(menu_frame)
