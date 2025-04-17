@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
 import requests
+import os
 from io import BytesIO
 import base64
 
@@ -14,7 +15,7 @@ root.geometry("1500x850")
 
 def switch_frame(to_show):
     """切换显示的界面"""
-    for frame in [menu_frame, style_transfer_frame, cloth_changing_reid_frame]:
+    for frame in [menu_frame, style_transfer_frame, cloth_changing_reid_frame, VI_ReID_frame]:
         frame.pack_forget()
     to_show.pack(fill="both", expand=True)
 
@@ -24,8 +25,9 @@ def create_menu_frame():
     """创建主菜单界面"""
     menu_frame = tk.Frame(root)
     tk.Label(menu_frame, text="请选择功能", font=("Arial", 24)).pack(pady=50)
-    tk.Button(menu_frame, text="风格转换功能", font=("Arial", 16), command=lambda: switch_frame(style_transfer_frame)).pack(pady=15)
+    tk.Button(menu_frame, text="行人服装风格转换功能", font=("Arial", 16), command=lambda: switch_frame(style_transfer_frame)).pack(pady=15)
     tk.Button(menu_frame, text="换装行人重识别图像检索", font=("Arial", 16), command=lambda: switch_frame(cloth_changing_reid_frame)).pack(pady=15)
+    tk.Button(menu_frame, text="跨模态行人重识别功能VI-ReID", font=("Arial", 16),command=lambda: switch_frame(VI_ReID_frame)).pack(pady=20)
     return menu_frame
 
 # ----------- 风格转换 Frame -----------
@@ -116,6 +118,47 @@ def create_cloth_changing_reid_frame():
 
     return cloth_changing_reid_frame, preview_label, result_frame, reid_status_label
 
+
+# ----------- 跨模态行人重识别 Frame -----------
+
+def create_VI_ReID_frame():
+    """创建跨模态行人重识别功能界面"""
+    VI_ReID_frame = tk.Frame(root)
+
+    # 返回按钮
+    tk.Button(VI_ReID_frame, text="← 返回主菜单return menu", font=("Arial", 12),command=lambda: switch_frame(menu_frame)).pack(anchor="nw", padx=10, pady=10)
+
+    # 中部区域容器
+    middle_frame = tk.Frame(VI_ReID_frame)
+    middle_frame.pack(pady=10)
+
+    # 左侧：查询图像选择
+    left_panel = create_image_selection_panel(middle_frame, "选择查询图像select the query image", VI_ReID_query_image_path,
+                                              VI_ReID_query_preview)
+    left_panel.pack(side="left", padx=20)
+
+    # 上传一个文件夹的图像
+    def select_gallery_folder():
+        folder_path = filedialog.askdirectory(title="选择 gallery 文件夹")
+        if folder_path:
+            VI_ReID_gallery_image_path.set(folder_path)  # 保存路径到 StringVar
+
+    tk.Entry(VI_ReID_frame, textvariable=VI_ReID_gallery_image_path, width=60).pack(pady=5)
+    tk.Button(VI_ReID_frame, text="选择gallery图像文件夹", font=("Arial", 14), command=select_gallery_folder).pack(pady=20)
+
+    # 上传查询按钮
+    tk.Button(VI_ReID_frame, text="上传并查询upload and query", font=("Arial", 14), command=lambda: queryVI_images()).pack(
+        pady=20)
+
+    # 状态提示
+    VI_ReID_status_label = tk.Label(VI_ReID_frame, text="", font=("Arial", 12))
+    VI_ReID_status_label.pack(pady=10)
+
+    # 可视化结果
+    VI_ReID_image_panel = tk.Frame(VI_ReID_frame)
+    VI_ReID_image_panel.pack(pady=10)
+
+    return VI_ReID_frame, VI_ReID_status_label, VI_ReID_image_panel
 
 # ----------- 功能函数 -----------
 
@@ -210,17 +253,67 @@ def show_reid_results(results, result_frame):
             print(f"显示图像失败，错误：{e}")
 
 
+# ----------- 跨模态行人重识别 -----------
+
+def queryVI_images():
+    """上传查询图像并进行跨模态识别"""
+    VI_ReID_status_label.config(text="行人识别中...person re-identification in progress", fg="blue")
+    root.update_idletasks()
+
+    try:
+        # TODO
+        url = "http://192.168.1.117:8000/VI-ReID"  # 修改为你的实际 API 地址
+
+        files = []
+
+        files.append(("query", open(VI_ReID_query_image_path.get(), "rb")))
+
+        gallery_folder = VI_ReID_gallery_image_path.get()
+
+        for filename in os.listdir(gallery_folder):
+            file_path = os.path.join(gallery_folder, filename)
+            if os.path.isfile(file_path):
+                files.append(("gallery_files", open(file_path, "rb")))
+
+        response = requests.post(url, files=files)
+        if response.status_code == 200:
+            VI_ReID_status_label.config(text="查询完成 ✔query completed", fg="green")
+
+            data = response.json()
+            image_list = data["images"]
+
+            # 清空旧图像
+            for widget in VI_ReID_image_panel.winfo_children():
+                widget.destroy()
+
+            for i, img_base64 in enumerate(image_list):
+                img_data = base64.b64decode(img_base64)
+                image = Image.open(BytesIO(img_data)).resize((128, 256))
+                photo = ImageTk.PhotoImage(image)
+
+                label = tk.Label(VI_ReID_image_panel, image=photo)
+                label.image = photo  # 避免垃圾回收
+                label.grid(row=0, column=i, padx=5)
+        else:
+            VI_ReID_status_label.config(text="查询失败 ❌query failed", fg="red")
+    except Exception as e:
+        VI_ReID_status_label.config(text=f"请求失败request failed：{e}", fg="red")
+
+
 # ----------- 初始化界面 -----------
 
 # 在这里定义保存图像路径的 StringVar
 transfer_source_image_path = tk.StringVar()
 transfer_reference_image_path = tk.StringVar()
 cloth_changing_reid_query_image_path = tk.StringVar()
+VI_ReID_query_image_path = tk.StringVar()
+VI_ReID_gallery_image_path = tk.StringVar()
 
 # 定义预览标签
 transfer_source_preview = tk.Label()
 transfer_reference_preview = tk.Label()
 
+VI_ReID_query_preview = tk.Label()
 # 标签选项
 label_options = ["dress", "pant", "short"]
 
@@ -232,6 +325,8 @@ transfer_reference_label_var = tk.StringVar(value=label_options[0])
 menu_frame = create_menu_frame()
 style_transfer_frame, transfer_status_label = create_style_transfer_frame()
 cloth_changing_reid_frame, preview_label, result_frame,reid_status_label = create_cloth_changing_reid_frame()
+VI_ReID_frame, VI_ReID_status_label, VI_ReID_image_panel = create_VI_ReID_frame()
+
 
 # 启动主循环
 switch_frame(menu_frame)
