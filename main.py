@@ -9,7 +9,7 @@ import base64
 # 初始化窗口
 root = tk.Tk()
 root.title("功能选择界面")
-root.geometry("1500x850")
+root.geometry("2000x1000")
 
 # ----------- 工具函数 -----------
 
@@ -296,7 +296,7 @@ def queryVI_images():
 
     try:
         # TODO
-        url = "http://192.168.1.117:8000/VI-ReID"  # 修改为你的实际 API 地址
+        url = "http://192.168.1.117:8001/VI-ReID"  # 修改为你的实际 API 地址
 
         files = []
 
